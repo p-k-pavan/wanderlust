@@ -15,4 +15,4 @@ if [[ "$current_url" != "VITE_API_PATH=\"http://${ipv4_address}:5000\"" ]]; then
     else
         echo "ERROR: File not found."
     fi
-f
+fi
