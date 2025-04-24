@@ -1,0 +1,115 @@
+@Library('Shared@main') _
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'FRONTEND_DOCKER_TAG', defaultValue: '', description: 'Docker tag for frontend image')
+        string(name: 'BACKEND_DOCKER_TAG', defaultValue: '', description: 'Docker tag for backend image')
+    }
+
+    stages {
+
+        stage("Workspace Clean") {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage("Git: Code Checkout") {
+            steps {
+                script {
+                    code_checkout("https://github.com/p-k-pavan/wanderlust.git", "main")
+                }
+            }
+        }
+
+        stage("Verify: Docker Image Tags") {
+            steps {
+                script {
+                    echo "BACKEND_DOCKER_TAG: ${params.BACKEND_DOCKER_TAG}"
+                    echo "FRONTEND_DOCKER_TAG: ${params.FRONTEND_DOCKER_TAG}"
+                }
+            }
+        }
+
+        stage("Update: Kubernetes Manifests") {
+            steps {
+                script {
+                    dir('kubernetes') {
+                        sh """
+                            sed -i 's|wanderlust-backend:.*|wanderlust-backend:${params.BACKEND_DOCKER_TAG}|' backend.yaml
+                            sed -i 's|wanderlust-frontend:.*|wanderlust-frontend:${params.FRONTEND_DOCKER_TAG}|' frontend.yaml
+                        """
+                    }
+                }
+            }
+        }
+
+        stage("Git: Push Updated Files") {
+            steps {
+                script {
+                    withCredentials([gitUsernamePassword(credentialsId: 'Github-cred', gitToolName: 'Default')]) {
+                        sh '''
+                            git config user.email "pkpavan2003@gmail.com"
+                            git config user.name "Pavan Umar"
+                            
+                            echo "Checking repo status:"
+                            git status
+
+                            echo "Adding changes to git:"
+                            git add .
+
+                            echo "Committing changes:"
+                            git commit -m "Update env variable" || echo "No changes to commit"
+
+                            echo "Pushing changes to GitHub:"
+                            git push origin main
+                        '''
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                emailext attachLog: true,
+                    from: 'pkpavan2003@gmail.com',
+                    subject: "✅ Wanderlust Application has been updated and deployed - ${currentBuild.result}",
+                    body: """
+                        <html>
+                        <body>
+                            <h2 style="color: green;">Build Successful</h2>
+                            <p><strong>Project:</strong> ${env.JOB_NAME}</p>
+                            <p><strong>Build Number:</strong> ${env.BUILD_NUMBER}</p>
+                            <p><strong>URL:</strong> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
+                        </body>
+                        </html>
+                    """,
+                    to: 'pkpavan2003@gmail.com',
+                    mimeType: 'text/html'
+            }
+        }
+
+        failure {
+            script {
+                emailext attachLog: true,
+                    from: 'pkpavan2003@gmail.com', // Fixed typo from 'gamil.com'
+                    subject: "❌ Wanderlust Application build failed - ${currentBuild.result}",
+                    body: """
+                        <html>
+                        <body>
+                            <h2 style="color: red;">Build Failed</h2>
+                            <p><strong>Project:</strong> ${env.JOB_NAME}</p>
+                            <p><strong>Build Number:</strong> ${env.BUILD_NUMBER}</p>
+                            <p><strong>URL:</strong> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
+                        </body>
+                        </html>
+                    """,
+                    to: 'pkpavan2003@gmail.com',
+                    mimeType: 'text/html'
+            }
+        }
+    }
+}
