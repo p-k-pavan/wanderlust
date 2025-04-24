@@ -13,6 +13,12 @@ RUN npm install
 # Copy the rest of the application code
 COPY . .
 
+# Use Docker-specific env file during build
+COPY .env.docker .env
+
+# Build Vite app (uses env vars during build)
+RUN npm run build
+
 # ------------------- Stage 2: Final Stage ------------------------------
 FROM node:21-slim
 
