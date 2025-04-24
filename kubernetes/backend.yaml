@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: pkpavan14/wanderlust-backend:V1.1
+          image: pkpavan14/wanderlust-backend:V1
           ports:
             - containerPort: 5000
 ---
